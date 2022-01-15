@@ -10,4 +10,4 @@ make windows
 ./game.exe
 ```
 
-![Demo](.ping-pong.gif)
+![Demo](ping-pong.gif)
