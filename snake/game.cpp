@@ -9,9 +9,9 @@ Game::Game()
 	screen_height = 900;
 	screen_width = 1200;
 	last_frame_time = 0;
-	player_speed = 200;
-	Body *first_part = new Body{200, 300, 10, 10, {player_speed, 0}, NULL};
-	player = {first_part, first_part};
+	player_speed = 200.f;
+	Body *init_body = new Body{200, 300, 10, 10, {player_speed, 0}, NULL};
+	player = {init_body, init_body};
 	food = {500, 500, 10, 10, true};
 
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
@@ -50,22 +50,22 @@ void Game::process_input()
 			break;
 		case SDL_KEYDOWN:
 		{
-			if (event.key.keysym.sym == SDL_KeyCode::SDLK_UP)
+			if (event.key.keysym.sym == SDL_KeyCode::SDLK_UP && player.head->velocity.y <= 0)
 			{
 				player.head->velocity.x = 0;
 				player.head->velocity.y = -player_speed;
 			}
-			if (event.key.keysym.sym == SDL_KeyCode::SDLK_DOWN)
+			if (event.key.keysym.sym == SDL_KeyCode::SDLK_DOWN && player.head->velocity.y >= 0)
 			{
 				player.head->velocity.x = 0;
 				player.head->velocity.y = player_speed;
 			}
-			if (event.key.keysym.sym == SDL_KeyCode::SDLK_LEFT)
+			if (event.key.keysym.sym == SDL_KeyCode::SDLK_LEFT && player.head->velocity.x <= 0)
 			{
 				player.head->velocity.x = -player_speed;
 				player.head->velocity.y = 0;
 			}
-			if (event.key.keysym.sym == SDL_KeyCode::SDLK_RIGHT)
+			if (event.key.keysym.sym == SDL_KeyCode::SDLK_RIGHT && player.head->velocity.x >= 0)
 			{
 				player.head->velocity.x = player_speed;
 				player.head->velocity.y = 0;
@@ -82,56 +82,73 @@ void Game::update()
 {
 	float delta_time = (SDL_GetTicks() - last_frame_time) * 0.001;
 	last_frame_time = SDL_GetTicks();
-	Body *tmp = player.head;
-	while (tmp)
+
+	player.head->x += player.head->velocity.x * delta_time;
+	player.head->y += player.head->velocity.y * delta_time;
+	Body *tmp = player.tail;
+	while (tmp && tmp->next_body)
 	{
-		tmp->x += tmp->velocity.x * delta_time;
-		tmp->y += tmp->velocity.y * delta_time;
+		std::cout << tmp->x << std::endl;
+		tmp->x = tmp->next_body->x;
+		tmp->y = tmp->next_body->y;
 		tmp = tmp->next_body;
 	}
-
 	// check collision food vs snake head
 	if (food.can_eat && rectangle_intersect({food.x, food.y, food.w, food.h}, {(int)player.head->x, (int)player.head->y, (int)player.head->w, (int)player.head->h}))
 	{
 		float new_x = 0;
 		float new_y = 0;
-		if (player.tail->velocity.x > 0)
+		if (player.head->velocity.x > 0)
 		{
-			new_x = player.tail->x - 10;
-			new_y = player.tail->y;
+			new_x = player.head->x + 10;
+			new_y = player.head->y;
 		}
-		else if (player.tail->velocity.x < 0)
+		else if (player.head->velocity.x < 0)
 		{
-			new_x = player.tail->x + 10;
-			new_y = player.tail->y;
+			new_x = player.head->x - 10;
+			new_y = player.head->y;
 		}
-		else if (player.tail->velocity.y > 0)
+		else if (player.head->velocity.y > 0)
 		{
-			new_x = player.tail->x;
-			new_y = player.tail->y - 10;
+			new_x = player.head->x;
+			new_y = player.head->y + 10;
 		}
-		else if (player.tail->velocity.y < 0)
+		else if (player.head->velocity.y < 0)
 		{
-			new_x = player.tail->x;
-			new_y = player.tail->y + 10;
+			new_x = player.head->x;
+			new_y = player.head->y - 10;
 		}
-		Body *new_part = new Body{new_x, new_y, player.tail->w, player.tail->h, {player.tail->velocity.x, player.tail->velocity.y}};
-		player.tail->next_body = new_part;
-		player.tail = new_part;
+		Body *new_part = new Body{new_x, new_y, player.head->w, player.head->h, {player.head->velocity.x, player.head->velocity.y}};
+		player.head->next_body = new_part;
+		player.head = player.head->next_body;
 
 		food.can_eat = false;
 	}
 
 	if (!food.can_eat)
 	{
-		food.x = rand() % screen_width;
-		food.y = rand() % screen_height;
+		food.x = (rand() % screen_width) / 10 * 10;
+		food.y = (rand() % screen_height) / 10 * 10;
 		food.can_eat = true;
 	}
 
-	// reset position when head out of the screen
-	player.head->x = fmod(player.head->x, screen_width);
-	player.head->y = fmod(player.head->y, screen_height);
+	// reset position when move out of the screen
+	if (player.head->x < 0)
+	{
+		player.head->x = screen_width;
+	}
+	if (player.head->x > screen_width)
+	{
+		player.head->x = 0;
+	}
+	if (player.head->y < 0)
+	{
+		player.head->y = screen_height;
+	}
+	if (player.head->y > screen_height)
+	{
+		player.head->y = 0;
+	}
 }
 
 void Game::render()
@@ -140,12 +157,13 @@ void Game::render()
 	SDL_RenderClear(renderer);
 
 	//render player
-	Body *tmp = player.head;
+	Body *tmp = player.tail;
+	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
 	while (tmp)
 	{
-		SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 		SDL_Rect rect_snake = {(int)tmp->x, (int)tmp->y, (int)tmp->w, (int)tmp->h};
 		SDL_RenderFillRect(renderer, &rect_snake);
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 		tmp = tmp->next_body;
 	}
 

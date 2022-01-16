@@ -3,7 +3,7 @@
 
 struct Vector2f
 {
-	int x, y;
+	float x, y;
 };
 
 struct Body
@@ -29,7 +29,7 @@ class Game
 {
 	int screen_width, screen_height;
 	int last_frame_time;
-	int player_speed;
+	float player_speed;
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	bool is_running;
